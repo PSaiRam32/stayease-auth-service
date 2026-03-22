@@ -1,7 +1,9 @@
 package com.stayease.auth_service.service;
 
+import com.stayease.auth_service.config.UserClientConfig;
 import com.stayease.auth_service.dto.AuthResponse;
 import com.stayease.auth_service.dto.RegisterRequest;
+import com.stayease.auth_service.dto.UserProfileRequest;
 import com.stayease.auth_service.entity.RefreshToken;
 import com.stayease.auth_service.exception.InvalidCredentialsException;
 import com.stayease.auth_service.exception.RefreshTokenException;
@@ -29,6 +31,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final UserClientConfig userClient;
 
     public void register(@Valid RegisterRequest request){
         Role role=roleRepository.findByName(request.getRole())
@@ -39,6 +42,14 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(role);
         userRepository.save(user);
+        userClient.createUser(
+                new UserProfileRequest(
+                        user.getId(),
+                        user.getName(),
+                        user.getEmail(),
+                        user.getRole().getName()
+                )
+        );
     }
 
     public AuthResponse login(LoginRequest request){
