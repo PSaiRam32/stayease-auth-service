@@ -1,12 +1,16 @@
 package com.stayease.auth_service.dto;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.*;
 
-@Data
+@Getter
 @AllArgsConstructor
+@Builder
 public class AuthResponse {
+
+    private String message;
+    private Long userId;
+    private String role;
     private String accessToken;
     private String refreshToken;
-
 }

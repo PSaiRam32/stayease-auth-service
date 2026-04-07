@@ -6,8 +6,9 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+@Builder
 @Entity
-@Table(name="users")
+@Table(name = "users")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,12 +19,14 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
-    @Column(unique=true)
+    @Column(unique = true)
     private String email;
     private String password;
-    @ManyToOne
-    @JoinColumn(name="role_id")
+    private String phone;
+    @Enumerated(EnumType.STRING)
     private Role role;
-
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Builder.Default
+    private boolean isActive = true;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }
