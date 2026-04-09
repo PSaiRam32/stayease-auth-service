@@ -1,9 +1,6 @@
 package com.stayease.auth_service.service;
 
-import com.stayease.auth_service.dto.AuthResponse;
-import com.stayease.auth_service.dto.LoginRequest;
-import com.stayease.auth_service.dto.RegisterRequest;
-import com.stayease.auth_service.dto.UserProfileRequest;
+import com.stayease.auth_service.dto.*;
 import com.stayease.auth_service.entity.Role;
 import com.stayease.auth_service.config.UserClientConfig;
 import com.stayease.auth_service.entity.User;
@@ -82,6 +79,7 @@ public class AuthService {
         return AuthResponse.builder()
                 .message("User registered successfully")
                 .userId(user.getId())
+                .name(user.getName())
                 .role(user.getRole().name())
                 .build();
     }
@@ -108,6 +106,7 @@ public class AuthService {
         return AuthResponse.builder()
                 .message("Login successful")
                 .userId(user.getId())
+                .name(user.getName())
                 .role(user.getRole().name())
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -138,9 +137,47 @@ public class AuthService {
         return AuthResponse.builder()
                 .message("Token refreshed successfully")
                 .userId(user.getId())
+                .name(user.getName())
                 .role(user.getRole().name())
                 .accessToken(newAccessToken)
                 .refreshToken(refreshToken)
                 .build();
     }
+
+
+    public ChangePasswordResponse changePassword(ChangePasswordRequest request) {
+        log.info("Processing change password request for user: {}", request.getEmail());
+
+        // Validate new password and confirm password match
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            log.error("New password and confirm password do not match for user: {}", request.getEmail());
+            throw new RuntimeException("New password and confirm password do not match");
+        }
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> {
+                    log.error("User not found with id: {}", request.getEmail());
+                    return new UserNotFoundException("User not found with id: " + request.getEmail());
+                });
+
+        // Verify old password
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            log.warn("Old password is incorrect for user: {}", request.getEmail());
+            throw new RuntimeException("Old password is incorrect");
+        }
+
+        // Validate new password is not same as old password
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            log.warn("New password cannot be same as old password for user: {}", request.getEmail());
+            throw new RuntimeException("New password cannot be same as old password");
+        }
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        log.info("Password changed successfully for user: {}", request.getEmail());
+        return new ChangePasswordResponse(true, "Password changed successfully");
+    }
+
 }
