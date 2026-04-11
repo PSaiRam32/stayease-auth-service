@@ -13,6 +13,7 @@ public class AuthServiceApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(AuthServiceApplication.class, args);
 		log.info("Auth Service is Started and running on port 8081...");
+		log.info("Swagger Link: http://localhost:8081/swagger-ui.html");
 	}
 
 }

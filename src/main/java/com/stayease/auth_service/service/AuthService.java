@@ -1,5 +1,6 @@
 package com.stayease.auth_service.service;
 
+import com.stayease.auth_service.config.OwnerClient;
 import com.stayease.auth_service.dto.*;
 import com.stayease.auth_service.entity.Role;
 import com.stayease.auth_service.config.UserClientConfig;
@@ -26,6 +27,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserClientConfig userClientConfig;
+    private final OwnerClient ownerClient;
 
     public AuthResponse register(RegisterRequest request) {
         log.info("Starting user registration for email: {}", request.getEmail());
@@ -69,6 +71,19 @@ public class AuthService {
                     )
             );
             log.info("User profile created successfully in user service for ID: {}", user.getId());
+            if(user.getRole() == Role.ROLE_OWNER){
+                ownerClient.createOwner(
+                        new OwnerCreateRequest(
+                                user.getId(),
+                                user.getName(),
+                                user.getEmail(),
+                                user.getPhone(),
+                                user.getCreatedAt(),
+                                user.getUpdatedAt()
+                        )
+                );
+            }
+            log.info("Owner profile created successfully in Owner service for ID: {}", user.getId());
         } catch (Exception e) {
             log.error("Failed to create user profile in user service for ID: {}. Rolling back user creation. Error: ", user.getId(), e);
             userRepository.delete(user);
@@ -147,31 +162,26 @@ public class AuthService {
 
     public ChangePasswordResponse changePassword(ChangePasswordRequest request) {
         log.info("Processing change password request for user: {}", request.getEmail());
-
         // Validate new password and confirm password match
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             log.error("New password and confirm password do not match for user: {}", request.getEmail());
             throw new RuntimeException("New password and confirm password do not match");
         }
-
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> {
                     log.error("User not found with id: {}", request.getEmail());
                     return new UserNotFoundException("User not found with id: " + request.getEmail());
                 });
-
         // Verify old password
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
             log.warn("Old password is incorrect for user: {}", request.getEmail());
             throw new RuntimeException("Old password is incorrect");
         }
-
         // Validate new password is not same as old password
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
             log.warn("New password cannot be same as old password for user: {}", request.getEmail());
             throw new RuntimeException("New password cannot be same as old password");
         }
-
         // Update password
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setUpdatedAt(LocalDateTime.now());

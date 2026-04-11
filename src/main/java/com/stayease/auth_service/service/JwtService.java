@@ -16,8 +16,8 @@ public class JwtService {
 
         private String secret="stayease-super-secret-key-for-jwt-authentication-2026-secure-key";
 
-        // 15 minutes
-        private final long ACCESS_TOKEN_VALIDITY = 1000L * 60 * 15;
+        // 60 minutes
+        private final long ACCESS_TOKEN_VALIDITY = 1000L * 60 * 60;
         // 7 days
         private final long REFRESH_TOKEN_VALIDITY = 1000L * 60 * 60 * 24 * 7;
 
