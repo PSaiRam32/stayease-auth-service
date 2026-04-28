@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class UserProfileRequest {
 
-    private Long id;
+    private Long userId;
     private String name;
     private String email;
     private Role role;

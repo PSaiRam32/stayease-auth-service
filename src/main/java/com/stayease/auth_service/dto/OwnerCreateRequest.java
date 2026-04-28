@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 @Getter
 @AllArgsConstructor
 public class OwnerCreateRequest {
-    private Long id;
+    private Long ownerId;
     private String name;
     private String email;
     private String phone;

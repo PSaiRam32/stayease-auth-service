@@ -22,31 +22,29 @@ public class JwtService {
         private final long REFRESH_TOKEN_VALIDITY = 1000L * 60 * 60 * 24 * 7;
 
         public String generateAccessToken(User user) {
-            log.debug("Generating access token for user ID: {}, role: {}", user.getId(), user.getRole());
+            log.debug("Generating access token for user ID: {}, role: {}", user.getUserId(), user.getRole());
             String token = Jwts.builder()
-                    .setSubject(String.valueOf(user.getId()))
+                    .setSubject(String.valueOf(user.getUserId()))
                     .claim("role", user.getRole().name())
                     .setIssuedAt(new Date())
                     .setExpiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_VALIDITY))
                     .signWith(SignatureAlgorithm.HS256, secret.getBytes())
                     .compact();
-            log.debug("Access token generated successfully for user ID: {}", user.getId());
+            log.debug("Access token generated successfully for user ID: {}", user.getUserId());
             return token;
         }
-
         public String generateRefreshToken(User user) {
-            log.debug("Generating refresh token for user ID: {}", user.getId());
+            log.debug("Generating refresh token for user ID: {}", user.getUserId());
             String token = Jwts.builder()
-                    .setSubject(String.valueOf(user.getId()))
+                    .setSubject(String.valueOf(user.getUserId()))
                     .claim("type", "refresh")
                     .setIssuedAt(new Date())
                     .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_VALIDITY))
                     .signWith(SignatureAlgorithm.HS256, secret.getBytes())
                     .compact();
-            log.debug("Refresh token generated successfully for user ID: {}", user.getId());
+            log.debug("Refresh token generated successfully for user ID: {}", user.getUserId());
             return token;
         }
-
         public Claims validateToken(String token) {
             log.debug("Validating token");
             try {

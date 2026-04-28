@@ -49,10 +49,10 @@ public class AuthController {
 
     @Operation(summary = "Refresh Access Token")
     @PostMapping("/refresh-token")
-    public ResponseEntity<AuthResponse> refresh(@RequestParam String refreshToken) {
+    public ResponseEntity<AuthResponse> refreshAccessToken(@RequestBody RefreshTokenRequest token) {
         log.info("POST /auth/refresh-token - Token refresh request received");
         try {
-            AuthResponse response = authService.refreshToken(refreshToken);
+            AuthResponse response = authService.refreshToken(token.getRefreshToken());
             log.info("POST /auth/refresh-token - Token refresh successful");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
