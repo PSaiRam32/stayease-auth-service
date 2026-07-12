@@ -100,4 +100,32 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(InvalidOtpException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidOtp(InvalidOtpException ex){
+        ErrorResponse error=new ErrorResponse(
+                        ex.getMessage(),
+                        HttpStatus.BAD_REQUEST.value(),
+                        LocalDateTime.now());
+        return new ResponseEntity<>(error,HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(OtpExpiredException.class)
+    public ResponseEntity<ErrorResponse> handleOtpExpired(OtpExpiredException ex){
+        ErrorResponse error=new ErrorResponse(
+                        ex.getMessage(),
+                        HttpStatus.GONE.value(),
+                        LocalDateTime.now());
+        return new ResponseEntity<>(error,HttpStatus.GONE);
+    }
+
+    @ExceptionHandler(OtpAlreadyUsedException.class)
+    public ResponseEntity<ErrorResponse> handleOtpAlreadyUsed(OtpAlreadyUsedException ex){
+        ErrorResponse error=new ErrorResponse(
+                        ex.getMessage(),
+                        HttpStatus.CONFLICT.value(),
+                        LocalDateTime.now());
+        return new ResponseEntity<>(error,HttpStatus.CONFLICT);
+    }
+
+
 }

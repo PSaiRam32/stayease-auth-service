@@ -36,4 +36,22 @@ public class EmailServiceImpl implements EmailService {
                         + "StayEase Team");
         mailSender.send(message);
     }
+
+    @Override
+    public void sendPasswordResetOtp(User user, String otp) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(user.getEmail());
+        message.setSubject("StayEase Password Reset OTP");
+        message.setText(
+                "Hello " + user.getName()
+                        + "\n\n"
+                        + "Your OTP for password reset is : "
+                        + otp
+                        + "\n\n"
+                        + "This OTP is valid for 10 minutes."
+                        + "\n\n"
+                        + "Regards,\nStayEase Team"
+        );
+        mailSender.send(message);
+    }
 }
