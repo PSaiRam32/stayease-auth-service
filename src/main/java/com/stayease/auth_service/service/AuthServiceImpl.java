@@ -2,14 +2,15 @@ package com.stayease.auth_service.service;
 
 import com.stayease.auth_service.config.OwnerClient;
 import com.stayease.auth_service.dto.*;
+import com.stayease.auth_service.entity.EmailVerificationToken;
 import com.stayease.auth_service.entity.Role;
 import com.stayease.auth_service.config.UserClientConfig;
 import com.stayease.auth_service.entity.User;
-import com.stayease.auth_service.exception.InvalidCredentialsException;
-import com.stayease.auth_service.exception.RefreshTokenExpiredException;
-import com.stayease.auth_service.exception.UserNotFoundException;
+import com.stayease.auth_service.exception.*;
+import com.stayease.auth_service.repository.EmailVerificationTokenRepository;
 import com.stayease.auth_service.repository.UserRepository;
 import io.jsonwebtoken.Claims;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +30,11 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final UserClientConfig userClientConfig;
     private final OwnerClient ownerClient;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final EmailService emailService;
+    private static final int EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
 
+    @Transactional(rollbackOn = Exception.class)
     public AuthResponse register(RegisterRequest request) {
         log.info("Starting user registration for email: {}", request.getEmail());
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
@@ -53,26 +59,41 @@ public class AuthServiceImpl implements AuthService {
         user.setRole(assignedRole);
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
-        user.setActive(true);
+        user.setActive(false);
+        user.setEmailVerified(false);
         log.info("Saving user to database with email: {}, role: {}", request.getEmail(), assignedRole);
         User savedUser = userRepository.save(user);
+        String verificationToken = generateVerificationToken();
+        EmailVerificationToken emailToken = EmailVerificationToken.builder()
+                        .token(verificationToken)
+                        .user(savedUser)
+                        .createdAt(LocalDateTime.now())
+                        .expiryTime(LocalDateTime.now().plusHours(EMAIL_VERIFICATION_EXPIRY_HOURS))
+                        .used(false)
+                        .build();
+        emailVerificationTokenRepository.save(emailToken);
+        log.info("Email verification token generated for user ID: {}", savedUser.getUserId());
         boolean userServiceCreated = false;
         log.info("User saved successfully with ID: {}", savedUser.getUserId());
         try {
             log.info("Calling user service to create user profile for ID: {}", user.getUserId());
-            userClientConfig.createUser(
-                    new UserProfileRequest(
+            userClientConfig.createUser(new UserProfileRequest(
                             savedUser.getUserId(),
                             savedUser.getName(),
                             savedUser.getEmail(),
                             savedUser.getRole(),
                             savedUser.getPhone(),
                             savedUser.getCreatedAt(),
-                            savedUser.getUpdatedAt()
+                            savedUser.getUpdatedAt(),
+                            savedUser.isActive(),
+                            savedUser.isEmailVerified()
                     )
             );
             userServiceCreated = true;
             log.info("User profile created successfully in user service for ID: {}", user.getUserId());
+            log.info("Sending verification email to {}", savedUser.getEmail());
+            emailService.sendVerificationEmail(savedUser, verificationToken);
+            log.info("Verification email sent successfully to {}", savedUser.getEmail());
             if(savedUser.getRole() == Role.ROLE_OWNER){
                 ownerClient.createOwner(
                         new OwnerCreateRequest(
@@ -95,6 +116,9 @@ public class AuthServiceImpl implements AuthService {
                 }
             }
             try {
+                log.warn("Rolling back email verification token for user ID: {}", savedUser.getUserId());
+                emailVerificationTokenRepository.delete(emailToken);
+                log.warn("Rolling back Auth user with ID: {}", savedUser.getUserId());
                 userRepository.deleteById(savedUser.getUserId());
             } catch (Exception e) {
                 log.error("Auth rollback failed", e);
@@ -103,12 +127,13 @@ public class AuthServiceImpl implements AuthService {
         }
         log.info("User registration completed successfully for email: {}", request.getEmail());
         return AuthResponse.builder()
-                .message("User registered successfully")
+                .message("Registration successful. Please verify your email before logging in.")
                 .userId(user.getUserId())
                 .name(user.getName())
                 .role(user.getRole().name())
                 .build();
     }
+
     public AuthResponse login(LoginRequest request) {
         log.info("Starting login attempt for email: {}", request.getEmail());
         User user = userRepository.findByEmail(request.getEmail())
@@ -116,6 +141,10 @@ public class AuthServiceImpl implements AuthService {
                     log.warn("Login failed: User not found with email: {}", request.getEmail());
                     return new InvalidCredentialsException("Invalid email or password");
                 });
+        if (!user.isActive()) {
+            log.warn("Login denied. Email not verified for user: {}", request.getEmail());
+            throw new EmailNotVerifiedException("Please verify your email before logging in.");
+        }
         log.debug("User found in database with email: {}, ID: {}", request.getEmail(), user.getUserId());
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             log.warn("Login failed: Invalid password for email: {}", request.getEmail());
@@ -138,6 +167,7 @@ public class AuthServiceImpl implements AuthService {
                 .refreshToken(refreshToken)
                 .build();
     }
+
     public AuthResponse refreshToken(String refreshToken) {
         log.info("Starting token refresh process");
         log.debug("Validating refresh token");
@@ -197,5 +227,50 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
         log.info("Password changed successfully for user: {}", request.getEmail());
         return new ChangePasswordResponse(true, "Password changed successfully");
+    }
+
+    @Override
+    @Transactional
+    public void verifyEmail(String token) {
+        log.info("Starting email verification");
+        EmailVerificationToken verificationToken = emailVerificationTokenRepository.findByToken(token)
+                        .orElseThrow(() -> new InvalidVerificationTokenException("Invalid verification token"));
+        log.debug("Verification token found successfully");
+        if (verificationToken.isUsed()) {
+            throw new EmailAlreadyVerifiedException("Email already verified");
+        }
+        if (verificationToken.getExpiryTime().isBefore(LocalDateTime.now())) {
+            throw new VerificationTokenExpiredException("Verification token expired");
+        }
+        log.debug("Verification token is valid and not expired");
+        User user = verificationToken.getUser();
+        user.setActive(true);
+        user.setEmailVerified(true);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        log.info("User {} verified successfully", user.getEmail());
+//        verificationToken.setUsed(true);
+        log.info("Synchronizing verification status with User Service");
+        userClientConfig.verifyUser(user.getUserId(),UserVerificationRequest.builder()
+                        .active(true)
+                        .emailVerified(true)
+                        .build());
+        log.info("User Service synchronized successfully");
+        log.info("Synchronizing verification status with Owner Service");
+        if(user.getRole() == Role.ROLE_OWNER){
+            ownerClient.verifyOwner(user.getUserId(),UserVerificationRequest.builder()
+                            .active(true)
+                            .emailVerified(true)
+                            .build());
+        }
+        log.info("Owner Service synchronized successfully");
+        emailVerificationTokenRepository.delete(verificationToken);
+        log.info("Verification token removed");
+        log.info("Email verification completed successfully for user: {}", user.getEmail());
+//        emailVerificationTokenRepository.save(verificationToken);
+    }
+
+    private String generateVerificationToken() {
+        return UUID.randomUUID().toString();
     }
 }

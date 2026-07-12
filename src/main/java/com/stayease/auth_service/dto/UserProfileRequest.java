@@ -18,5 +18,7 @@ public class UserProfileRequest {
     private String phone;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean active;
+    private boolean emailVerified;
 
 }

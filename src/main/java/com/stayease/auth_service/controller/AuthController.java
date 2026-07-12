@@ -67,4 +67,11 @@ public class AuthController {
         log.info("Change password request for user: {}", request.getEmail());
         return authService.changePassword(request);
     }
+
+    @Operation(summary="Verify Email")
+    @GetMapping("/verify-email")
+    public ResponseEntity<String> verifyEmail(@RequestParam String token) {
+        authService.verifyEmail(token);
+        return ResponseEntity.ok("Email verified successfully. You can now login.");
+    }
 }

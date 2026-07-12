@@ -10,5 +10,5 @@ public interface AuthService {
     AuthResponse login(LoginRequest request);
     AuthResponse refreshToken(String refreshToken);
     ChangePasswordResponse changePassword(ChangePasswordRequest request);
-
+    void verifyEmail(String token);
 }
