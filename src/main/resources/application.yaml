@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: auth-service
+  secret: stayease-super-secret-key-for-jwt-authentication-2026-secure-key
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: sairam.paidipati32@gmail.com
+    password: oplj qscp xdst nwmk
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
 
   datasource:
     url: jdbc:mysql://localhost:3306/stayease_auth_db
@@ -13,7 +23,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
