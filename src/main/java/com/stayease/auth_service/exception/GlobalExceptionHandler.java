@@ -1,6 +1,6 @@
 package com.stayease.auth_service.exception;
 
-import com.stayease.auth_service.dto.ErrorResponse;
+import com.stayease.auth_service.dto.Response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -126,6 +126,26 @@ public class GlobalExceptionHandler {
                         LocalDateTime.now());
         return new ResponseEntity<>(error,HttpStatus.CONFLICT);
     }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(InvalidRefreshTokenException ex){
+        ErrorResponse error=new ErrorResponse(
+                        ex.getMessage(),
+                        HttpStatus.UNAUTHORIZED.value(),
+                        LocalDateTime.now());
+        return new ResponseEntity<>(error,HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(RefreshTokenRevokedException.class)
+    public ResponseEntity<ErrorResponse> handleRevokedRefreshToken(RefreshTokenRevokedException ex){
+        ErrorResponse error=new ErrorResponse(
+                        ex.getMessage(),
+                        HttpStatus.UNAUTHORIZED.value(),
+                        LocalDateTime.now());
+        return new ResponseEntity<>(error,HttpStatus.UNAUTHORIZED);
+    }
+
+
 
 
 }

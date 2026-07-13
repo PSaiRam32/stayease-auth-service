@@ -1,6 +1,8 @@
 package com.stayease.auth_service.controller;
 
-import com.stayease.auth_service.dto.*;
+import com.stayease.auth_service.dto.Request.*;
+import com.stayease.auth_service.dto.Response.AuthResponse;
+import com.stayease.auth_service.dto.Response.ChangePasswordResponse;
 import com.stayease.auth_service.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -57,11 +59,11 @@ public class AuthController {
 
     @Operation(summary="Verify Email")
     @GetMapping("/verify-email")
-    public ResponseEntity<AuthResponse> verifyEmail(@Valid @RequestParam String token) {
+    public ResponseEntity<String> verifyEmail(@Valid @RequestParam String token) {
         log.info("GET /auth/verify-email - Email verification request received");
         authService.verifyEmail(token);
         log.info("GET /auth/verify-email - Email verified successfully");
-        return ResponseEntity.ok(AuthResponse.builder().message("Email verified successfully. You can now login.").build());
+        return ResponseEntity.ok("Email verified successfully. You can now login.");
     }
 
     @Operation(summary="Forgot Password")
@@ -81,5 +83,14 @@ public class AuthController {
         log.info("POST /auth/reset-password - Password reset successful for email: {}", request.getEmail());
         return ResponseEntity.ok(AuthResponse.builder()
                 .message("Password Reset Successful").build());
+    }
+
+    @Operation(summary = "Logout User")
+    @PostMapping("/logout")
+    public ResponseEntity<AuthResponse> logout(@Valid @RequestBody LogoutRequest request) {
+        log.info("POST /auth/logout - Logout request received");
+        authService.logout(request);
+        log.info("POST /auth/logout - Logout successful");
+        return ResponseEntity.ok(AuthResponse.builder().message("Logout Successful").build());
     }
 }

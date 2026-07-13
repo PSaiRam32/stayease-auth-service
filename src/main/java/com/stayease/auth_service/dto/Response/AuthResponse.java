@@ -1,4 +1,4 @@
-package com.stayease.auth_service.dto;
+package com.stayease.auth_service.dto.Response;
 
 import lombok.AllArgsConstructor;
 import lombok.*;
