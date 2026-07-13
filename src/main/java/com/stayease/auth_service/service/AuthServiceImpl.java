@@ -1,15 +1,15 @@
 package com.stayease.auth_service.service;
 
 import com.stayease.auth_service.config.OwnerClient;
-import com.stayease.auth_service.dto.*;
-import com.stayease.auth_service.entity.EmailVerificationToken;
-import com.stayease.auth_service.entity.PasswordResetToken;
-import com.stayease.auth_service.entity.Role;
+import com.stayease.auth_service.dto.Request.*;
+import com.stayease.auth_service.dto.Response.AuthResponse;
+import com.stayease.auth_service.dto.Response.ChangePasswordResponse;
+import com.stayease.auth_service.entity.*;
 import com.stayease.auth_service.config.UserClientConfig;
-import com.stayease.auth_service.entity.User;
 import com.stayease.auth_service.exception.*;
 import com.stayease.auth_service.repository.EmailVerificationTokenRepository;
 import com.stayease.auth_service.repository.PasswordResetTokenRepository;
+import com.stayease.auth_service.repository.RefreshTokenRepository;
 import com.stayease.auth_service.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.transaction.Transactional;
@@ -17,9 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.UUID;
 
 @Service
@@ -34,9 +32,10 @@ public class AuthServiceImpl implements AuthService {
     private final OwnerClient ownerClient;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
-    private static final int EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private static final int PASSWORD_RESET_OTP_EXPIRY_MINUTES = 10;
+    private static final int EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
 
     @Transactional(rollbackOn = Exception.class)
     public AuthResponse register(RegisterRequest request) {
@@ -138,6 +137,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         log.info("Starting login attempt for email: {}", request.getEmail());
         User user = userRepository.findByEmail(request.getEmail())
@@ -160,6 +160,8 @@ public class AuthServiceImpl implements AuthService {
         log.debug("Access token generated successfully");
         log.info("Generating refresh token for user ID: {}", user.getUserId());
         String refreshToken = jwtService.generateRefreshToken(user);
+        refreshTokenRepository.deleteByUserUserId(user.getUserId());
+        saveRefreshToken(user, refreshToken);
         log.debug("Refresh token generated successfully");
         log.info("Login successful for email: {}", request.getEmail());
         return AuthResponse.builder()
@@ -172,37 +174,39 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    public AuthResponse refreshToken(String refreshToken) {
-        log.info("Starting token refresh process");
-        log.debug("Validating refresh token");
-        Claims claims = jwtService.validateToken(refreshToken);
-        log.debug("Refresh token validated successfully");
-        if(claims.getExpiration().before(Date.from(Instant.now()))){
-            log.warn("Token refresh failed: Refresh token has expired");
+    @Override
+    @Transactional
+    public AuthResponse refreshToken(String refreshToken){
+        log.info("Starting refresh token process");
+        Claims claims=jwtService.validateToken(refreshToken);
+        Long userId=Long.parseLong(claims.getSubject());
+        RefreshToken storedToken=refreshTokenRepository.findByToken(refreshToken)
+                .orElseThrow(() -> new InvalidRefreshTokenException("Invalid refresh token"));
+        if (storedToken.isRevoked()){
+            throw new RefreshTokenRevokedException("Refresh token has been revoked");
+        }
+        if (storedToken.getExpiryTime().isBefore(LocalDateTime.now())){
+            refreshTokenRepository.delete(storedToken);
             throw new RefreshTokenExpiredException("Refresh token expired");
         }
-        log.debug("Token expiration check passed");
-        Long userId = Long.parseLong(claims.getSubject());
-        log.debug("Extracted user ID from token: {}", userId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.error("Token refresh failed: User not found with ID: {}", userId);
-                    return new UserNotFoundException("User not found");
-                });
-        log.debug("User found in database with ID: {}", userId);
-        log.info("Generating new access token for user ID: {}", userId);
-        String newAccessToken = jwtService.generateAccessToken(user);
-        log.debug("New access token generated successfully");
-        log.info("Token refresh completed successfully for user ID: {}", userId);
+        User user = userRepository.findById(userId).orElseThrow(() ->
+                        new UserNotFoundException("User not found"));
+        String newAccessToken=jwtService.generateAccessToken(user);
+        //RefreshTokenRotation
+        String newRefreshToken=jwtService.generateRefreshToken(user);
+        refreshTokenRepository.delete(storedToken);
+        RefreshToken rf=saveRefreshToken(user, newRefreshToken);
+        log.info("Refresh token rotated successfully");
         return AuthResponse.builder()
                 .message("Token refreshed successfully")
                 .userId(user.getUserId())
                 .name(user.getName())
                 .role(user.getRole().name())
                 .accessToken(newAccessToken)
-                .refreshToken(refreshToken)
+                .refreshToken(newRefreshToken)
                 .build();
     }
+
     public ChangePasswordResponse changePassword(ChangePasswordRequest request) {
         log.info("Processing change password request for user: {}", request.getEmail());
         // Validate new password and confirm password match
@@ -336,5 +340,33 @@ public class AuthServiceImpl implements AuthService {
 
     private String generateOtp(){
         return String.valueOf(java.util.concurrent.ThreadLocalRandom.current().nextInt(100000,1000000));
+    }
+
+    private RefreshToken saveRefreshToken(User user, String token) {
+        RefreshToken refreshToken = RefreshToken.builder()
+                .token(token)
+                .user(user)
+                .expiryTime(LocalDateTime.now().plusDays(7))
+                .revoked(false)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        return refreshTokenRepository.save(refreshToken);
+    }
+
+    @Override
+    @Transactional
+    public void logout(LogoutRequest request){
+        log.info("Logout initiated");
+        jwtService.validateToken(request.getRefreshToken());
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
+                .orElseThrow(() -> new InvalidRefreshTokenException("Invalid refresh token"));
+        if(refreshToken.isRevoked()){
+            throw new RefreshTokenRevokedException("Refresh token already revoked");
+        }
+        refreshToken.setRevoked(true);
+        refreshToken.setUpdatedAt(LocalDateTime.now());
+        refreshTokenRepository.save(refreshToken);
+        log.info("User logged out successfully");
     }
 }

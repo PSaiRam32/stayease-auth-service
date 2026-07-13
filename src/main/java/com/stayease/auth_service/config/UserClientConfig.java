@@ -1,8 +1,8 @@
 package com.stayease.auth_service.config;
 
 
-import com.stayease.auth_service.dto.UserProfileRequest;
-import com.stayease.auth_service.dto.UserVerificationRequest;
+import com.stayease.auth_service.dto.Request.UserProfileRequest;
+import com.stayease.auth_service.dto.Request.UserVerificationRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 

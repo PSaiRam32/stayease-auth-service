@@ -4,9 +4,9 @@ import com.stayease.auth_service.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Date;
 
@@ -14,7 +14,8 @@ import java.util.Date;
 @Slf4j
 public class JwtService {
 
-        private String secret="stayease-super-secret-key-for-jwt-authentication-2026-secure-key";
+        @Value("${spring.secret}")
+        private String secret;
 
         // 60 minutes
         private final long ACCESS_TOKEN_VALIDITY = 1000L * 60 * 60;
