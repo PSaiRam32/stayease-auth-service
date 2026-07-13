@@ -3,11 +3,13 @@ package com.stayease.auth_service.service;
 import com.stayease.auth_service.config.OwnerClient;
 import com.stayease.auth_service.dto.*;
 import com.stayease.auth_service.entity.EmailVerificationToken;
+import com.stayease.auth_service.entity.PasswordResetToken;
 import com.stayease.auth_service.entity.Role;
 import com.stayease.auth_service.config.UserClientConfig;
 import com.stayease.auth_service.entity.User;
 import com.stayease.auth_service.exception.*;
 import com.stayease.auth_service.repository.EmailVerificationTokenRepository;
+import com.stayease.auth_service.repository.PasswordResetTokenRepository;
 import com.stayease.auth_service.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.transaction.Transactional;
@@ -33,6 +35,8 @@ public class AuthServiceImpl implements AuthService {
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
     private static final int EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private static final int PASSWORD_RESET_OTP_EXPIRY_MINUTES = 10;
 
     @Transactional(rollbackOn = Exception.class)
     public AuthResponse register(RegisterRequest request) {
@@ -272,5 +276,65 @@ public class AuthServiceImpl implements AuthService {
 
     private String generateVerificationToken() {
         return UUID.randomUUID().toString();
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request){
+        log.info("Forgot password initiated for email: {}", request.getEmail());
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() ->
+                        new UserNotFoundException("User not found"));
+        //Remove Old Reset Tokens
+        passwordResetTokenRepository.findByUserUserId(user.getUserId())
+                .ifPresent(passwordResetTokenRepository::delete);
+        String otp = generateOtp();
+        PasswordResetToken resetToken=PasswordResetToken.builder()
+                        .otp(otp)
+                        .user(user)
+                        .createdAt(LocalDateTime.now())
+                        .expiryTime(LocalDateTime.now().plusMinutes(PASSWORD_RESET_OTP_EXPIRY_MINUTES))
+                        .used(false)
+                        .build();
+        passwordResetTokenRepository.save(resetToken);
+        log.info("Password reset OTP generated for user {}", user.getEmail());
+        emailService.sendPasswordResetOtp(user, otp);
+        log.info("Password reset OTP email sent");
+    }
+    private PasswordResetToken validateOtp(String otp, String email) {
+        log.info("Verifying password reset OTP");
+        PasswordResetToken token = passwordResetTokenRepository.findByOtp(otp)
+                .orElseThrow(() -> new InvalidOtpException("Invalid OTP"));
+        if (!token.getUser().getEmail().equals(email)) {
+            throw new InvalidOtpException("Invalid OTP");
+        }
+        if (token.isUsed()) {
+            throw new OtpAlreadyUsedException("OTP already used");
+        }
+        if (token.getExpiryTime().isBefore(LocalDateTime.now())) {
+            throw new OtpExpiredException("OTP expired");
+        }
+        log.info("OTP verified successfully");
+        return token;
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        log.info("Reset password started");
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Passwords do not match");
+        }
+        PasswordResetToken token = validateOtp(request.getOtp(), request.getEmail());
+        User user = token.getUser();
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        passwordResetTokenRepository.delete(token);
+        log.info("Password reset successful for user {}", user.getEmail());
+    }
+
+
+    private String generateOtp(){
+        return String.valueOf(java.util.concurrent.ThreadLocalRandom.current().nextInt(100000,1000000));
     }
 }
