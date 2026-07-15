@@ -16,16 +16,4 @@ public class OpenApiConfig {
                         .description("Authentication APIs for StayEase")
                         .version("1.0"));
     }
-//    @Bean
-//    public OpenAPI customOpenAPI() {
-//        return new OpenAPI()
-//                .components(new Components()
-//                        .addSecuritySchemes("bearerAuth",
-//                                new SecurityScheme()
-//                                        .type(SecurityScheme.Type.HTTP)
-//                                        .scheme("bearer")
-//                                        .bearerFormat("JWT")
-//                        )
-//                );
-//    }
 }

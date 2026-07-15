@@ -81,8 +81,7 @@ public class AuthController {
         log.info("POST /auth/reset-password - Password reset request received for email: {}", request.getEmail());
         authService.resetPassword(request);
         log.info("POST /auth/reset-password - Password reset successful for email: {}", request.getEmail());
-        return ResponseEntity.ok(AuthResponse.builder()
-                .message("Password Reset Successful").build());
+        return ResponseEntity.ok(AuthResponse.builder().message("Password Reset Successful").build());
     }
 
     @Operation(summary = "Logout User")
@@ -92,5 +91,10 @@ public class AuthController {
         authService.logout(request);
         log.info("POST /auth/logout - Logout successful");
         return ResponseEntity.ok(AuthResponse.builder().message("Logout Successful").build());
+    }
+
+    @PutMapping("/users/internal/deactivate/{userId}")
+    public void deactivateUser(@PathVariable Long userId,@RequestBody UserDeactivationRequest request) {
+        authService.deactivateUser(userId, request);
     }
 }

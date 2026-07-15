@@ -16,4 +16,5 @@ public interface AuthService {
     void forgotPassword(ForgotPasswordRequest request);
     void resetPassword(ResetPasswordRequest request);
     void logout(LogoutRequest request);
+    void deactivateUser(Long userId,UserDeactivationRequest request);
 }

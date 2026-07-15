@@ -5,7 +5,7 @@ import com.stayease.auth_service.dto.Request.*;
 import com.stayease.auth_service.dto.Response.AuthResponse;
 import com.stayease.auth_service.dto.Response.ChangePasswordResponse;
 import com.stayease.auth_service.entity.*;
-import com.stayease.auth_service.config.UserClientConfig;
+import com.stayease.auth_service.config.UserClient;
 import com.stayease.auth_service.exception.*;
 import com.stayease.auth_service.repository.EmailVerificationTokenRepository;
 import com.stayease.auth_service.repository.PasswordResetTokenRepository;
@@ -28,7 +28,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final UserClientConfig userClientConfig;
+    private final UserClient userClient;
     private final OwnerClient ownerClient;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
@@ -54,16 +54,16 @@ public class AuthServiceImpl implements AuthService {
             log.warn("Attempted registration with ROLE_ADMIN for email: {}", request.getEmail());
             throw new RuntimeException("Admin registration is not allowed");
         }
-        User user = new User();
-        user.setName(request.getName());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setPhone(request.getPhone());
-        user.setRole(assignedRole);
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
-        user.setActive(false);
-        user.setEmailVerified(false);
+        User user=User.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .phone(request.getPhone())
+                .role(assignedRole)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .isActive(false)
+                 .emailVerified(false).build();
         log.info("Saving user to database with email: {}, role: {}", request.getEmail(), assignedRole);
         User savedUser = userRepository.save(user);
         String verificationToken = generateVerificationToken();
@@ -80,7 +80,7 @@ public class AuthServiceImpl implements AuthService {
         log.info("User saved successfully with ID: {}", savedUser.getUserId());
         try {
             log.info("Calling user service to create user profile for ID: {}", user.getUserId());
-            userClientConfig.createUser(new UserProfileRequest(
+            userClient.createUser(new UserProfileRequest(
                             savedUser.getUserId(),
                             savedUser.getName(),
                             savedUser.getEmail(),
@@ -113,7 +113,7 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception ex) {
             if (userServiceCreated) {
                 try {
-                    userClientConfig.deleteUser(savedUser.getUserId());
+                    userClient.deleteUser(savedUser.getUserId());
                 } catch (Exception e) {
                     log.error("User Service rollback failed", e);
                 }
@@ -259,7 +259,7 @@ public class AuthServiceImpl implements AuthService {
         log.info("User {} verified successfully", user.getEmail());
 //        verificationToken.setUsed(true);
         log.info("Synchronizing verification status with User Service");
-        userClientConfig.verifyUser(user.getUserId(),UserVerificationRequest.builder()
+        userClient.verifyUser(user.getUserId(),UserVerificationRequest.builder()
                         .active(true)
                         .emailVerified(true)
                         .build());
@@ -368,5 +368,16 @@ public class AuthServiceImpl implements AuthService {
         refreshToken.setUpdatedAt(LocalDateTime.now());
         refreshTokenRepository.save(refreshToken);
         log.info("User logged out successfully");
+    }
+
+    @Override
+    @Transactional
+    public void deactivateUser(Long userId,UserDeactivationRequest request){
+        log.info("Received user deactivation request for userId: {}", userId);
+        User user=userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found."));
+        user.setActive(request.isActive());
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        log.info("User {} deactivated successfully.", userId);
     }
 }

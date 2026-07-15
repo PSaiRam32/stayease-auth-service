@@ -4,23 +4,27 @@ import com.stayease.auth_service.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Service
 @Slf4j
 public class JwtService {
-
-        @Value("${spring.secret}")
-        private String secret;
-
         // 60 minutes
         private final long ACCESS_TOKEN_VALIDITY = 1000L * 60 * 60;
         // 7 days
         private final long REFRESH_TOKEN_VALIDITY = 1000L * 60 * 60 * 24 * 7;
+        private final SecretKey key;
+
+        public JwtService(@Value("${spring.secret}") String secret) {
+            this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        }
 
         public String generateAccessToken(User user) {
             log.debug("Generating access token for user ID: {}, role: {}", user.getUserId(), user.getRole());
@@ -29,7 +33,7 @@ public class JwtService {
                     .claim("role", user.getRole().name())
                     .setIssuedAt(new Date())
                     .setExpiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_VALIDITY))
-                    .signWith(SignatureAlgorithm.HS256, secret.getBytes())
+                    .signWith(key)
                     .compact();
             log.debug("Access token generated successfully for user ID: {}", user.getUserId());
             return token;
@@ -41,7 +45,8 @@ public class JwtService {
                     .claim("type", "refresh")
                     .setIssuedAt(new Date())
                     .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_VALIDITY))
-                    .signWith(SignatureAlgorithm.HS256, secret.getBytes())
+//                    .signWith(SignatureAlgorithm.HS256, secret.getBytes())
+                    .signWith(key)
                     .compact();
             log.debug("Refresh token generated successfully for user ID: {}", user.getUserId());
             return token;
@@ -49,8 +54,9 @@ public class JwtService {
         public Claims validateToken(String token) {
             log.debug("Validating token");
             try {
-                Claims claims = Jwts.parser()
-                        .setSigningKey(secret.getBytes())
+                Claims claims = Jwts.parserBuilder()
+                        .setSigningKey(key)
+                        .build()
                         .parseClaimsJws(token)
                         .getBody();
                 log.debug("Token validated successfully for user ID: {}", claims.getSubject());

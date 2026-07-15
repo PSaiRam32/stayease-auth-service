@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 @FeignClient(
         name = "owner-service",
         url = "${services.owner-service.url}",
-        configuration = FeignClientConfig.class
+        configuration = FeignConfig.class
 )
 public interface OwnerClient {
 
