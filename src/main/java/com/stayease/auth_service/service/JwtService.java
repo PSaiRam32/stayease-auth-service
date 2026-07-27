@@ -3,7 +3,6 @@ package com.stayease.auth_service.service;
 import com.stayease.auth_service.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,20 +14,20 @@ import java.util.Date;
 
 @Service
 @Slf4j
-public class JwtService {
+public class JwtService{
         // 60 minutes
         private final long ACCESS_TOKEN_VALIDITY = 1000L * 60 * 60;
         // 7 days
         private final long REFRESH_TOKEN_VALIDITY = 1000L * 60 * 60 * 24 * 7;
         private final SecretKey key;
 
-        public JwtService(@Value("${spring.secret}") String secret) {
+        public JwtService(@Value("${spring.secret}") String secret){
             this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         }
 
-        public String generateAccessToken(User user) {
+        public String generateAccessToken(User user){
             log.debug("Generating access token for user ID: {}, role: {}", user.getUserId(), user.getRole());
-            String token = Jwts.builder()
+            String token=Jwts.builder()
                     .setSubject(String.valueOf(user.getUserId()))
                     .claim("role", user.getRole().name())
                     .setIssuedAt(new Date())
@@ -38,9 +37,9 @@ public class JwtService {
             log.debug("Access token generated successfully for user ID: {}", user.getUserId());
             return token;
         }
-        public String generateRefreshToken(User user) {
+        public String generateRefreshToken(User user){
             log.debug("Generating refresh token for user ID: {}", user.getUserId());
-            String token = Jwts.builder()
+            String token=Jwts.builder()
                     .setSubject(String.valueOf(user.getUserId()))
                     .claim("type", "refresh")
                     .setIssuedAt(new Date())
@@ -51,17 +50,17 @@ public class JwtService {
             log.debug("Refresh token generated successfully for user ID: {}", user.getUserId());
             return token;
         }
-        public Claims validateToken(String token) {
+        public Claims validateToken(String token){
             log.debug("Validating token");
             try {
-                Claims claims = Jwts.parserBuilder()
+                Claims claims=Jwts.parserBuilder()
                         .setSigningKey(key)
                         .build()
                         .parseClaimsJws(token)
                         .getBody();
                 log.debug("Token validated successfully for user ID: {}", claims.getSubject());
                 return claims;
-            } catch (Exception e) {
+            } catch (Exception e){
                 log.error("Token validation failed: {}", e.getMessage());
                 throw e;
             }

@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
     @Bean
-    public OpenAPI authServiceOpenAPI() {
+    public OpenAPI authServiceOpenAPI(){
         return new OpenAPI()
                 .info(new Info()
                         .title("StayEase Auth Service API")

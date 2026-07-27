@@ -12,8 +12,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class RefreshToken {
-
+public class RefreshToken{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -10,7 +10,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @Slf4j
-public class SecurityConfig {
+public class SecurityConfig{
 
     @Bean
     public BCryptPasswordEncoder passwordEncoder(){
@@ -19,7 +19,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
         log.info("Configuring security filter chain");
         http
                 .csrf(csrf -> csrf.disable())
@@ -33,12 +33,10 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .formLogin(form -> form.disable());
         log.info("Security filter chain configured successfully");
-
         return http.build();
     }
 }

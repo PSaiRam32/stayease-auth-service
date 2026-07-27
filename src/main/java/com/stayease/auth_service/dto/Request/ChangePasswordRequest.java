@@ -10,8 +10,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChangePasswordRequest {
-
+public class ChangePasswordRequest{
     @NotBlank(message = "Email cannot be blank")
     private String email;
     @NotBlank(message = "Old password cannot be blank")

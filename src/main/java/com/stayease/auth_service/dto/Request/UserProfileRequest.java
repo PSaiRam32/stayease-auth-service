@@ -9,8 +9,7 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserProfileRequest {
-
+public class UserProfileRequest{
     private Long userId;
     private String name;
     private String email;

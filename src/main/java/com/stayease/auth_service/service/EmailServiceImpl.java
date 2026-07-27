@@ -16,13 +16,13 @@ public class EmailServiceImpl implements EmailService {
     private String serverPort;
 
     @Override
-    public void sendVerificationEmail(User user, String token) {
+    public void sendVerificationEmail(User user, String token){
         String verificationLink =
                 "http://localhost:"
                         + serverPort
                         + "/auth/verify-email?token="
                         + token;
-        SimpleMailMessage message = new SimpleMailMessage();
+        SimpleMailMessage message=new SimpleMailMessage();
         message.setTo(user.getEmail());
         message.setSubject("StayEase Email Verification");
         message.setText(
@@ -38,8 +38,8 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public void sendPasswordResetOtp(User user, String otp) {
-        SimpleMailMessage message = new SimpleMailMessage();
+    public void sendPasswordResetOtp(User user, String otp){
+        SimpleMailMessage message=new SimpleMailMessage();
         message.setTo(user.getEmail());
         message.setSubject("StayEase Password Reset OTP");
         message.setText(

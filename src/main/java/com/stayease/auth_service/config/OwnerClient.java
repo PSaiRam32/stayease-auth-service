@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
         url = "${services.owner-service.url}",
         configuration = FeignConfig.class
 )
-public interface OwnerClient {
+public interface OwnerClient{
 
     @PostMapping("/owners/auth-internal")
     void createOwner(@RequestBody OwnerCreateRequest request);

@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @AllArgsConstructor
-public class OwnerCreateRequest {
+public class OwnerCreateRequest{
     private Long ownerId;
     private String name;
     private String email;

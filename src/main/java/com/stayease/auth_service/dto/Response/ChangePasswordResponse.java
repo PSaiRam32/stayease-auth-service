@@ -9,8 +9,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChangePasswordResponse {
-
+public class ChangePasswordResponse{
     private boolean success;
     private String message;
 }

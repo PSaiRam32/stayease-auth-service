@@ -7,6 +7,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserDeactivationRequest {
+public class UserDeactivationRequest{
     private boolean active;
 }

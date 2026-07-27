@@ -9,7 +9,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ForgotPasswordRequest {
+public class ForgotPasswordRequest{
     @NotBlank
     @Email
     private String email;

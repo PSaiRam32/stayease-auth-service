@@ -47,6 +47,9 @@ public class FeignConfig {
                 HttpServletRequest request = attributes.getRequest();
                 String authHeader = request.getHeader("Authorization");
                 String correlationId = request.getHeader("X-Correlation-Id");
+                System.out.println("------------------");
+                System.out.println(authHeader);
+                System.out.println(correlationId);
 
                 if (authHeader != null) {
                     log.debug("Adding Authorization header to Feign request");

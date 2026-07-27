@@ -23,43 +23,43 @@ public class AuthController {
 
     @Operation(summary="Register new user")
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody @Valid RegisterRequest request) {
+    public ResponseEntity<AuthResponse> register(@RequestBody @Valid RegisterRequest request){
         log.info("POST /auth/register - Registration request received for email: {}", request.getEmail());
-        AuthResponse response = authService.register(request);
+        AuthResponse response=authService.register(request);
         log.info("POST /auth/register - Registration successful for email: {}", request.getEmail());
         return ResponseEntity.ok(response);
     }
 
     @Operation(summary="Login user and obtain JWT tokens")
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(@RequestBody @Valid LoginRequest request){
         log.info("POST /auth/login - Login request received for email: {}", request.getEmail());
-        AuthResponse response = authService.login(request);
+        AuthResponse response=authService.login(request);
         log.info("POST /auth/login - Login successful for email: {}", request.getEmail());
         return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Refresh Access Token")
     @PostMapping("/refresh-token")
-    public ResponseEntity<AuthResponse> refreshAccessToken(@RequestBody RefreshTokenRequest token) {
+    public ResponseEntity<AuthResponse> refreshAccessToken(@RequestBody RefreshTokenRequest token){
         log.info("POST /auth/refresh-token - Token refresh request received");
-        AuthResponse response = authService.refreshToken(token.getRefreshToken());
+        AuthResponse response=authService.refreshToken(token.getRefreshToken());
         log.info("POST /auth/refresh-token - Token refresh successful");
         return ResponseEntity.ok(response);
     }
 
     @Operation(summary="Change Password - Update user password")
     @PostMapping("/change-password")
-    public ResponseEntity<ChangePasswordResponse> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<ChangePasswordResponse> changePassword(@Valid @RequestBody ChangePasswordRequest request){
         log.info("POST /auth/change-password - Request received for email: {}", request.getEmail());
-        ChangePasswordResponse response = authService.changePassword(request);
+        ChangePasswordResponse response=authService.changePassword(request);
         log.info("POST /auth/change-password - Password changed successfully for email: {}", request.getEmail());
         return ResponseEntity.ok(response);
     }
 
     @Operation(summary="Verify Email")
     @GetMapping("/verify-email")
-    public ResponseEntity<String> verifyEmail(@Valid @RequestParam String token) {
+    public ResponseEntity<String> verifyEmail(@Valid @RequestParam String token){
         log.info("GET /auth/verify-email - Email verification request received");
         authService.verifyEmail(token);
         log.info("GET /auth/verify-email - Email verified successfully");
@@ -77,7 +77,7 @@ public class AuthController {
 
     @Operation(summary = "Reset Password")
     @PostMapping("/reset-password")
-    public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+    public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request){
         log.info("POST /auth/reset-password - Password reset request received for email: {}", request.getEmail());
         authService.resetPassword(request);
         log.info("POST /auth/reset-password - Password reset successful for email: {}", request.getEmail());
@@ -86,7 +86,7 @@ public class AuthController {
 
     @Operation(summary = "Logout User")
     @PostMapping("/logout")
-    public ResponseEntity<AuthResponse> logout(@Valid @RequestBody LogoutRequest request) {
+    public ResponseEntity<AuthResponse> logout(@Valid @RequestBody LogoutRequest request){
         log.info("POST /auth/logout - Logout request received");
         authService.logout(request);
         log.info("POST /auth/logout - Logout successful");
@@ -94,7 +94,8 @@ public class AuthController {
     }
 
     @PutMapping("/users/internal/deactivate/{userId}")
-    public void deactivateUser(@PathVariable Long userId,@RequestBody UserDeactivationRequest request) {
+    @Operation(summary = "Deactivate User")
+    public void deactivateUser(@PathVariable Long userId,@RequestBody UserDeactivationRequest request){
         authService.deactivateUser(userId, request);
     }
 }

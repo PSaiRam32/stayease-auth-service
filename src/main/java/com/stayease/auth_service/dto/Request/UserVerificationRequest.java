@@ -7,7 +7,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserVerificationRequest {
+public class UserVerificationRequest{
     private boolean active;
     private boolean emailVerified;
 }

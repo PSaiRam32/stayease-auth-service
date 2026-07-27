@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
         url = "${services.user-service.url}",
         configuration = FeignConfig.class
 )
-public interface UserClient {
+public interface UserClient{
 
     @PostMapping("/users/auth-internal")
     void createUser(@RequestBody UserProfileRequest request);
