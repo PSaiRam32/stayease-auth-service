@@ -94,7 +94,7 @@ public class AuthController {
     }
 
     @PutMapping("/users/internal/deactivate/{userId}")
-    @Operation(summary = "Deactivate User")
+    @Operation(summary = "User Internal - Deactivate User")
     public void deactivateUser(@PathVariable Long userId,@RequestBody UserDeactivationRequest request){
         authService.deactivateUser(userId, request);
     }
