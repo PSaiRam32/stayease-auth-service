@@ -1,12 +1,12 @@
 package com.stayease.auth_service.service;
 
-import com.stayease.auth_service.config.OwnerClient;
 import com.stayease.auth_service.dto.Request.*;
 import com.stayease.auth_service.dto.Response.AuthResponse;
 import com.stayease.auth_service.dto.Response.ChangePasswordResponse;
 import com.stayease.auth_service.entity.*;
-import com.stayease.auth_service.config.UserClient;
 import com.stayease.auth_service.exception.*;
+import com.stayease.auth_service.integration.OwnerServiceGateway;
+import com.stayease.auth_service.integration.UserServiceGateway;
 import com.stayease.auth_service.repository.EmailVerificationTokenRepository;
 import com.stayease.auth_service.repository.PasswordResetTokenRepository;
 import com.stayease.auth_service.repository.RefreshTokenRepository;
@@ -28,8 +28,8 @@ public class AuthServiceImpl implements AuthService{
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final UserClient userClient;
-    private final OwnerClient ownerClient;
+    private final UserServiceGateway userServiceGateway;
+    private final OwnerServiceGateway ownerServiceGateway;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
@@ -80,7 +80,7 @@ public class AuthServiceImpl implements AuthService{
         log.info("User saved successfully with ID: {}", savedUser.getUserId());
         try {
             log.info("Calling user service to create user profile for ID: {}", user.getUserId());
-            userClient.createUser(new UserProfileRequest(
+            userServiceGateway.createUser(new UserProfileRequest(
                             savedUser.getUserId(),
                             savedUser.getName(),
                             savedUser.getEmail(),
@@ -98,7 +98,7 @@ public class AuthServiceImpl implements AuthService{
             emailService.sendVerificationEmail(savedUser, verificationToken);
             log.info("Verification email sent successfully to {}", savedUser.getEmail());
             if(savedUser.getRole()==Role.ROLE_OWNER){
-                ownerClient.createOwner(
+                ownerServiceGateway.createOwner(
                         new OwnerCreateRequest(
                                 savedUser.getUserId(),
                                 savedUser.getName(),
@@ -113,7 +113,7 @@ public class AuthServiceImpl implements AuthService{
         } catch (Exception ex){
             if (userServiceCreated){
                 try {
-                    userClient.deleteUser(savedUser.getUserId());
+                    userServiceGateway.deleteUser(savedUser.getUserId());
                 } catch (Exception e) {
                     log.error("User Service rollback failed", e);
                 }
@@ -260,14 +260,14 @@ public class AuthServiceImpl implements AuthService{
         log.info("User {} verified successfully", user.getEmail());
 //        verificationToken.setUsed(true);
         log.info("Synchronizing verification status with User Service");
-        userClient.verifyUser(user.getUserId(),UserVerificationRequest.builder()
+        userServiceGateway.verifyUser(user.getUserId(),UserVerificationRequest.builder()
                         .active(true)
                         .emailVerified(true)
                         .build());
         log.info("User Service synchronized successfully");
         log.info("Synchronizing verification status with Owner Service");
         if(user.getRole()==Role.ROLE_OWNER){
-            ownerClient.verifyOwner(user.getUserId(),UserVerificationRequest.builder()
+            ownerServiceGateway.verifyOwner(user.getUserId(),UserVerificationRequest.builder()
                             .active(true)
                             .emailVerified(true)
                             .build());
