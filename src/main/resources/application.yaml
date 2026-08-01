@@ -1,6 +1,15 @@
 server:
   port: 8081
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+
 feign:
   client:
     config:
@@ -15,12 +24,69 @@ logging:
     org.springframework.web: INFO
     com.stayease.auth_service.config.OwnerClient: DEBUG
     com.stayease.auth_service.config.UserClient: DEBUG
+    io.github.resilience4j.retry: DEBUG
+    io.github.resilience4j.circuitbreaker: DEBUG
 
+resilience4j:
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 2s
+        retry-exceptions:
+          - feign.RetryableException
+          - java.net.SocketTimeoutException
+          - java.net.ConnectException
+        ignore-exceptions:
+          - jakarta.validation.ValidationException
+          - java.lang.IllegalArgumentException
+
+    instances:
+      user-service:
+        base-config: default
+      owner-service:
+        base-config: default
+
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 30s
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - feign.FeignException
+          - java.net.SocketTimeoutException
+          - java.net.ConnectException
+
+    instances:
+      user-service:
+        base-config: default
+
+      owner-service:
+        base-config: default
 spring:
   application:
     name: auth-service
   profiles:
     active: local
+
+  eureka:
+    client:
+      register-with-eureka: true
+      fetch-registry: true
+      registry-fetch-interval-seconds: 30
+      service-url:
+        defaultZone: http://localhost:8761/eureka/
+
+    instance:
+      instance-id: ${spring.application.name}:${server.port}
+      prefer-ip-address: true
+      lease-renewal-interval-in-seconds: 30
+      lease-expiration-duration-in-seconds: 90
 
   secret: stayease-super-secret-key-for-jwt-authentication-2026-secure-key
 
@@ -58,13 +124,6 @@ feign:
       default:
         connect-timeout: 3000
         read-timeout: 5000
-
-services:
-  user-service:
-    url: http://localhost:8082
-  owner-service:
-    url: http://localhost:8083
-
 ---
 spring:
   config:
@@ -89,12 +148,6 @@ feign:
         connect-timeout: 3000
         read-timeout: 5000
 
-services:
-  user-service:
-    url: http://test-user-service:8082
-
-  owner-service:
-    url: http://test-owner-service:8083
 
 ---
 spring:
@@ -120,12 +173,6 @@ feign:
         connect-timeout: 5000
         read-timeout: 8000
 
-services:
-  user-service:
-    url: http://cut-user-service:8082
-  owner-service:
-    url: http://cut-owner-service:8083
-
 ---
 spring:
   config:
@@ -149,13 +196,6 @@ feign:
       default:
         connect-timeout: 5000
         read-timeout: 10000
-
-services:
-  user-service:
-    url: http://ete-user-service:8082
-  owner-service:
-    url: http://ete-owner-service:8083
-
 ---
 spring:
   config:
@@ -179,13 +219,6 @@ feign:
       default:
         connect-timeout: 7000
         read-timeout: 12000
-
-services:
-  user-service:
-    url: http://drt-user-service:8082
-  owner-service:
-    url: http://drt-owner-service:8083
-
 ---
 spring:
   config:
@@ -209,9 +242,3 @@ feign:
       default:
         connect-timeout: 1000
         read-timeout: 3000
-
-services:
-  user-service:
-    url: http://user-service
-  owner-service:
-    url: http://owner-service

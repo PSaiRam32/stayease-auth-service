@@ -9,11 +9,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 
-@FeignClient(
-        name = "owner-service",
-        url = "${services.owner-service.url}",
-        configuration = FeignConfig.class
-)
+@FeignClient(name = "owner-service",configuration = FeignConfig.class)
 public interface OwnerClient{
 
     @PostMapping("/owners/auth-internal")

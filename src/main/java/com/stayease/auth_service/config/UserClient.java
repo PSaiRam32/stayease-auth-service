@@ -6,11 +6,7 @@ import com.stayease.auth_service.dto.Request.UserVerificationRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
-@FeignClient(
-        name = "user-service",
-        url = "${services.user-service.url}",
-        configuration = FeignConfig.class
-)
+@FeignClient(name = "user-service",configuration = FeignConfig.class)
 public interface UserClient{
 
     @PostMapping("/users/auth-internal")
