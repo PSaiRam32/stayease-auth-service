@@ -16,25 +16,25 @@ public class OwnerServiceGateway {
 
     private final OwnerClient ownerClient;
 
-    @Retry(name="owner-service",fallbackMethod = "createOwnerFallback")
-    @CircuitBreaker(name="owner-service")
+    @Retry(name="owner-service")
+    @CircuitBreaker(name="owner-service",fallbackMethod = "createOwnerFallback")
     public void createOwner(OwnerCreateRequest request){
         ownerClient.createOwner(request);
     }
 
     public void createOwnerFallback(OwnerCreateRequest request, Exception ex){
         log.error("Owner Service unavailable", ex);
-        throw new RuntimeException("Owner Service is temporarily unavailable.Please Try again Later",ex);
+        throw new RuntimeException("Owner Service is currently unavailable while creating owner.",ex);
     }
 
-    @Retry(name = "owner-service",fallbackMethod = "verifyOwnerFallback")
-    @CircuitBreaker(name = "owner-service")
+    @Retry(name = "owner-service")
+    @CircuitBreaker(name = "owner-service",fallbackMethod = "verifyOwnerFallback")
     public void verifyOwner(Long ownerId,UserVerificationRequest request){
         ownerClient.verifyOwner(ownerId, request);
     }
 
     public void verifyOwnerFallback(Long ownerId,UserVerificationRequest request,Exception ex){
         log.error("Verification failed",ex);
-        throw new RuntimeException("Unable to verify user currently.",ex);
+        throw new RuntimeException("Owner Service is currently unavailable while verifying ownerId: " + ownerId,ex);
     }
 }

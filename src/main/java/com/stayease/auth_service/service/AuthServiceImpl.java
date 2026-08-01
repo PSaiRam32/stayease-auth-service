@@ -258,7 +258,6 @@ public class AuthServiceImpl implements AuthService{
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
         log.info("User {} verified successfully", user.getEmail());
-//        verificationToken.setUsed(true);
         log.info("Synchronizing verification status with User Service");
         userServiceGateway.verifyUser(user.getUserId(),UserVerificationRequest.builder()
                         .active(true)
@@ -276,7 +275,6 @@ public class AuthServiceImpl implements AuthService{
         emailVerificationTokenRepository.delete(verificationToken);
         log.info("Verification token removed");
         log.info("Email verification completed successfully for user: {}", user.getEmail());
-//        emailVerificationTokenRepository.save(verificationToken);
     }
 
     private String generateVerificationToken(){
@@ -363,7 +361,8 @@ public class AuthServiceImpl implements AuthService{
         RefreshToken refreshToken=refreshTokenRepository.findByToken(request.getRefreshToken())
                 .orElseThrow(() -> new InvalidRefreshTokenException("Invalid refresh token"));
         if(refreshToken.isRevoked()){
-            throw new RefreshTokenRevokedException("Refresh token already revoked");
+            log.info("Refresh token already revoked. Ignoring duplicate logout request.");
+            return;
         }
         refreshToken.setRevoked(true);
         refreshToken.setUpdatedAt(LocalDateTime.now());
