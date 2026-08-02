@@ -82,8 +82,27 @@ This project demonstrates several enterprise backend engineering concepts common
 - RESTful API Design
 - Environment-Based Configuration
 - Secure Token Lifecycle Management
+- Idempotent API Design
 
 ---
+
+# 🏛 Architectural Patterns
+
+The Auth Service follows several enterprise architectural patterns.
+
+Implemented:
+
+- Layered Architecture
+- Database per Service
+- API Gateway Pattern
+- Service Discovery Pattern
+- Stateless Authentication
+- Gateway Pattern (Feign Integration)
+- Retry Pattern
+- Circuit Breaker Pattern
+- Idempotent API Design
+- Externalized Configuration
+
 
 # 🎯 Project Objectives
 
@@ -148,9 +167,46 @@ The Auth Service has been designed with the following objectives:
 ## Service Communication
 
 - OpenFeign Integration
+- Netflix Eureka Service Discovery
+- Dynamic Service Discovery
 - User Service Integration
 - Owner Service Integration
+- Correlation ID Propagation
+- Authorization Header Forwarding
+- Resilient Service Communication
 - Centralized Identity Management
+
+---
+
+## Resilience & Fault Tolerance
+The Auth Service communicates with downstream microservices through OpenFeign integrated with Resilience4j.
+
+Implemented resilience patterns include:
+
+- Retry
+- Circuit Breaker
+- Graceful Fallbacks
+- Timeout Configuration
+- Centralized Feign Configuration
+
+Retry automatically handles transient failures while Circuit Breaker prevents cascading failures by stopping repeated requests to unavailable services.
+
+Integrated Services:
+- User Service
+- Owner Service
+
+---
+## Service Discovery
+The Auth Service uses Netflix Eureka for service registration and discovery.
+
+Instead of hardcoding service URLs, OpenFeign resolves service instances dynamically through Eureka.
+
+Benefits:
+- No hardcoded endpoints
+- Dynamic service registration
+- Automatic discovery
+- Better scalability
+- Easier cloud deployment
 
 ---
 
@@ -161,7 +217,7 @@ The Auth Service has been designed with the following objectives:
 - Input Validation
 - Standardized Error Responses
 
----
+--
 
 # 🛠 Technology Stack
 
@@ -175,6 +231,7 @@ The Auth Service has been designed with the following objectives:
 | Database | MySQL |
 | ORM | Spring Data JPA |
 | Service Communication | OpenFeign |
+| Service Discovery | Netflix Eureka |
 | Validation | Bean Validation |
 | Build Tool | Gradle |
 
@@ -182,27 +239,35 @@ The Auth Service has been designed with the following objectives:
 
 # 🏛 High-Level Architecture
 
-```text
-                     Client Applications
-                             │
-                             ▼
-                     Auth Controller
-                             │
-                             ▼
-                      Auth Service
-                             │
-      ┌──────────────────────┼──────────────────────┐
-      ▼                      ▼                      ▼
- JWT Service          Email Service          Feign Clients
-      │                      │                      │
-      ▼                      ▼                      ▼
-Token Management     Email Verification     User / Owner Service
-      │
-      ▼
-Repositories
-      │
-      ▼
-MySQL Database
+## Enterprise Service Communication
+
+```mermaid
+flowchart LR
+
+    Client["Client / Frontend"]
+    Gateway["Spring Cloud Gateway"]
+
+    Gateway --> Auth["Auth Service"]
+
+    Auth --> Eureka["Eureka Server"]
+    Auth --> Config["Config Server"]
+
+    Auth --> UserService["User Service"]
+    Auth --> OwnerService["Owner Service"]
+
+    Auth --> SMTP["SMTP Server"]
+
+    Auth --> AuthDB[("Auth MySQL")]
+    UserService --> UserDB[("User MySQL")]
+    OwnerService --> OwnerDB[("Owner MySQL")]
+
+    Eureka -. Service Discovery .-> UserService
+    Eureka -. Service Discovery .-> OwnerService
+    Eureka -. Service Discovery .-> Auth
+
+    Config -. Configuration .-> Auth
+    Config -. Configuration .-> UserService
+    Config -. Configuration .-> OwnerService
 ```
 
 ---
@@ -268,41 +333,40 @@ stayease-auth-service
 │   │               │   └── AuthController.java
 │   │               │
 │   │               ├── dto
-│   │               │   ├── Request
-│   │               │   └── Response
+│   │               │   ├── request
+│   │               │   └── response
 │   │               │
 │   │               ├── entity
-│   │               │   ├── User.java
-│   │               │   ├── RefreshToken.java
-│   │               │   ├── EmailVerificationToken.java
-│   │               │   ├── PasswordResetToken.java
-│   │               │   └── Role.java
 │   │               │
 │   │               ├── exception
-│   │               │   ├── GlobalExceptionHandler.java
-│   │               │   └── Business Exceptions
+│   │               │
+│   │               ├── integration
+│   │               │   ├── OwnerServiceGateway.java
+│   │               │   └── UserServiceGateway.java
 │   │               │
 │   │               ├── repository
-│   │               │   ├── UserRepository.java
-│   │               │   ├── RefreshTokenRepository.java
-│   │               │   ├── EmailVerificationTokenRepository.java
-│   │               │   └── PasswordResetTokenRepository.java
 │   │               │
 │   │               ├── service
 │   │               │   ├── AuthService.java
 │   │               │   ├── AuthServiceImpl.java
-│   │               │   ├── JwtService.java
 │   │               │   ├── EmailService.java
-│   │               │   └── EmailServiceImpl.java
+│   │               │   ├── EmailServiceImpl.java
+│   │               │   └── JwtService.java
 │   │               │
 │   │               └── AuthServiceApplication.java
 │   │
 │   ├── resources
+│   │   └── application.yaml
 │   │
 │   └── test
+│       └── java
+│           └── com
+│               └── stayease
+│                   └── auth_service
 │
 ├── .gitattributes
 ├── .gitignore
+├── LICENSE
 ├── README.md
 ├── build.gradle
 ├── gradlew
@@ -320,6 +384,7 @@ stayease-auth-service
 | **controller** | Exposes REST endpoints for registration, login, refresh token, email verification, password reset, logout, and password management. |
 | **dto** | Request and Response DTOs exchanged between clients and the Auth Service. |
 | **entity** | JPA entities representing Users, Roles(Enum), Refresh Tokens, Email Verification Tokens, and Password Reset Tokens. |
+| **integration** | Gateway layer responsible for resilient service-to-service communication using OpenFeign, Eureka Service Discovery, Retry, Circuit Breaker, and fallback mechanisms. |
 | **exception** | Global exception handling along with business-specific exceptions for authentication workflows. |
 | **repository** | Spring Data JPA repositories responsible for persistence operations. |
 | **service** | Contains authentication business logic, JWT generation/validation, email services, and token lifecycle management. |
@@ -332,24 +397,55 @@ stayease-auth-service
 
 The Auth Service follows a layered architecture where each layer has a clearly defined responsibility.
 
-```text
-                Client Request
-                      │
-                      ▼
-              Auth Controller
-                      │
-                      ▼
-               Auth Service
-                      │
-      ┌───────────────┼────────────────┐
-      ▼               ▼                ▼
- Jwt Service    Email Service    Feign Clients
-      │               │                │
-      ▼               ▼                ▼
-Repositories     SMTP Server   User / Owner Service
-      │
-      ▼
-MySQL Database
+```mermaid
+flowchart TB
+
+Client["Client / Frontend"]
+Gateway["API Gateway"]
+
+Controller["REST Controllers"]
+
+Service["Service Layer"]
+
+JWT["JWT Service"]
+Email["Email Service"]
+
+GatewayUser["UserServiceGateway"]
+GatewayOwner["OwnerServiceGateway"]
+
+FeignUser["User Client"]
+FeignOwner["Owner Client"]
+
+Repository["Repositories"]
+
+Database[(MySQL)]
+
+SMTP["SMTP Server"]
+
+UserService["User Service"]
+
+OwnerService["Owner Service"]
+
+Client --> Gateway
+Gateway --> Controller
+Controller --> Service
+
+Service --> JWT
+Service --> Email
+
+Service --> GatewayUser
+Service --> GatewayOwner
+
+GatewayUser --> FeignUser
+GatewayOwner --> FeignOwner
+
+FeignUser --> UserService
+FeignOwner --> OwnerService
+
+Service --> Repository
+Repository --> Database
+
+Email --> SMTP
 ```
 
 This separation of concerns improves maintainability, testability, and scalability.
@@ -358,487 +454,361 @@ This separation of concerns improves maintainability, testability, and scalabili
 
 # 📚 Package Overview
 
-The Auth Service follows a modular package structure where every package owns a single business responsibility.
+The Auth Service follows a modular layered architecture where each package has a single, well-defined responsibility. This separation of concerns improves maintainability, scalability, testability, and code readability.
 
 ---
 
 ## 📁 config
 
-Responsible for configuring the application's infrastructure.
+Contains application-wide configuration and infrastructure components.
 
-Includes:
+**Responsibilities:**
 
-- Spring Security
-- OpenAPI / Swagger
-- OpenFeign Clients
-- Security Policies
+- Spring Security Configuration
+- OpenAPI / Swagger Configuration
+- OpenFeign Client Configuration
+- Feign Request Interceptor
+- Authorization Header Propagation
+- Correlation ID Propagation
+- Feign Error Decoder
+- Timeout & Retry Configuration
+
+**Classes**
+
+- `FeignConfig`
+- `OpenApiConfig`
+- `SecurityConfig`
+- `UserClient`
+- `OwnerClient`
 
 ---
 
 ## 📁 controller
 
-Acts as the entry point for all authentication APIs.
+Acts as the entry point for all authentication-related REST APIs.
 
-Responsibilities include:
+**Responsibilities:**
 
 - User Registration
 - User Login
 - Refresh Token
+- Logout
 - Email Verification
 - Forgot Password
 - Reset Password
-- Logout
 - Change Password
 
 ---
 
 ## 📁 dto
 
-Contains request and response models exchanged between clients and the service.
+Contains request and response models exchanged between clients and the Auth Service.
 
-Examples include:
+**Responsibilities:**
 
-- RegisterRequest
-- LoginRequest
-- RefreshTokenRequest
-- ForgotPasswordRequest
-- ResetPasswordRequest
-- AuthResponse
+- API Request DTOs
+- API Response DTOs
+- Downstream Service DTOs
 
 ---
 
 ## 📁 entity
 
-Represents the application's persistent domain model.
+Represents the authentication domain model persisted in the database.
 
-Current entities include:
+**Entities**
 
 - User
-- Role(ENUM)
 - RefreshToken
 - EmailVerificationToken
 - PasswordResetToken
-
----
-
-## 📁 repository
-
-Provides database access using Spring Data JPA.
-
-Repositories include:
-
-- UserRepository
-- RefreshTokenRepository
-- EmailVerificationTokenRepository
-- PasswordResetTokenRepository
-
----
-
-## 📁 service
-
-Contains all business logic.
-
-Major responsibilities:
-
-- User Authentication
-- Token Generation
-- Token Validation
-- Password Management
-- Email Verification
-- Email Delivery
-- Logout
-- Refresh Token Management
+- Role (Enum)
 
 ---
 
 ## 📁 exception
 
-Provides centralized exception handling.
+Provides centralized exception handling and business-specific exceptions.
 
-Business exceptions include:
+**Responsibilities:**
 
-- Invalid Credentials
-- Invalid Refresh Token
-- Refresh Token Expired
-- Refresh Token Revoked
-- Email Already Verified
-- Email Not Verified
-- Invalid Verification Token
-- Verification Token Expired
-- Invalid OTP
-- OTP Expired
-- User Not Found
+- Global Exception Handling
+- Validation Errors
+- Authentication Errors
+- Token Exceptions
+- Business Exceptions
+- Standardized Error Responses
 
 ---
 
+## 📁 integration
+
+Acts as the gateway layer for resilient service-to-service communication.
+
+**Responsibilities:**
+
+- User Service Integration
+- Owner Service Integration
+- Service Discovery (Eureka)
+- OpenFeign Communication
+- Retry
+- Circuit Breaker
+- Fallback Handling
+
+**Classes**
+
+- `UserServiceGateway`
+- `OwnerServiceGateway`
+
+---
+
+## 📁 repository
+
+Handles persistence operations using Spring Data JPA.
+
+**Responsibilities:**
+
+- CRUD Operations
+- User Lookup
+- Refresh Token Management
+- Email Verification Token Management
+- Password Reset Token Management
+
+---
+
+## 📁 service
+
+Contains the core authentication business logic.
+
+**Responsibilities:**
+
+- User Registration
+- User Authentication
+- JWT Generation & Validation
+- Refresh Token Management
+- Email Verification
+- Password Recovery
+- Password Change
+- Logout
+- Email Delivery
+
+**Key Services**
+
+- `AuthService`
+- `AuthServiceImpl`
+- `JwtService`
+- `EmailService`
+- `EmailServiceImpl`
+
+---
+
+## 📁 resources
+
+Contains externalized application configuration.
+
+**Responsibilities:**
+
+- Spring Profiles
+- Database Configuration
+- Mail Configuration
+- JWT Configuration
+- Eureka Configuration
+- Feign Configuration
+- Resilience4j Configuration
+- Logging Configuration
+
+---
+
+## 📁 test
+
+Contains unit and integration tests for validating the application's behavior.
+
+---
+
+## 📁 AuthServiceApplication
+
+Application bootstrap class responsible for starting the Spring Boot application and enabling component scanning, service discovery, and auto-configuration.
 # 🔄 Authentication Lifecycle
 
 Every authentication request follows a structured processing pipeline.
 
-```text
-Client Request
+```mermaid
+flowchart LR
 
-      │
-
-      ▼
-
-Auth Controller
-
-      │
-
-      ▼
-
-Input Validation
-
-      │
-
-      ▼
-
-Business Logic
-
-      │
-
-      ▼
-
-JWT / Email / Database
-
-      │
-
-      ▼
-
-Generate Response
-
-      │
-
-      ▼
-
-Return Response
+Client --> Gateway
+Gateway --> AuthController
+AuthController --> AuthService
+AuthService --> JwtService
+AuthService --> EmailService
+AuthService --> UserGateway
+AuthService --> OwnerGateway
+UserGateway --> UserService
+OwnerGateway --> OwnerService
+AuthService --> MySQL
 ```
 
 ---
 
 # 👤 User Registration Flow
 
-```text
-Client
+```mermaid
+sequenceDiagram
 
-      │
+participant Client
+participant Auth
+participant UserService
+participant OwnerService
+participant Mail
 
-      ▼
+Client->>Auth:Register
 
-Register API
+Auth->>Auth:Validate Request
 
-      │
+Auth->>Auth:Save User
 
-      ▼
+Auth->>UserService:Create Profile
 
-Validate Request
+alt Owner Registration
+Auth->>OwnerService:Create Owner
+end
 
-      │
+Auth->>Mail:Send Verification Email
 
-      ▼
-
-Check Existing User
-
-      │
-
-      ▼
-
-Encrypt Password
-
-      │
-
-      ▼
-
-Save User
-
-      │
-
-      ▼
-
-Generate Verification Token
-
-      │
-
-      ▼
-
-Send Verification Email
-
-      │
-
-      ▼
-
-Create Profile (User/Owner Service)
-
-      │
-
-      ▼
-
-Registration Successful
+Auth-->>Client:Registration Successful
 ```
 
 ---
 
 # 🔐 Login Flow
 
-```text
-Client
+```mermaid
+sequenceDiagram
 
-      │
+Client->>Auth:Login
 
-      ▼
+Auth->>Auth:Validate Credentials
 
-Login API
+Auth->>Auth:Generate JWT
 
-      │
+Auth->>Auth:Generate Refresh Token
 
-      ▼
-
-Validate Credentials
-
-      │
-
-      ▼
-
-Check Email Verification
-
-      │
-
-      ▼
-
-Generate JWT
-
-      │
-
-      ▼
-
-Generate Refresh Token
-
-      │
-
-      ▼
-
-Persist Refresh Token
-
-      │
-
-      ▼
-
-Return Tokens
+Auth-->>Client:Access Token + Refresh Token
 ```
-
 ---
 
 # 🎫 JWT Authentication Flow
 
-```text
-Login Successful
+```mermaid
+sequenceDiagram
 
-      │
+participant Client
+participant Gateway
+participant Auth
+participant JWT
 
-      ▼
+Client->>Gateway: Request with JWT
 
-Generate Access Token
+Gateway->>Auth: Forward Request
 
-      │
+Auth->>JWT: Validate Access Token
 
-      ▼
-
-Return JWT
-
-      │
-
-      ▼
-
-Client Stores Token
-
-      │
-
-      ▼
-
-Attach Authorization Header
-
-Bearer <Access Token>
-
-      │
-
-      ▼
-
-Gateway Validates JWT
-
-      │
-
-      ▼
-
-Protected Resource
+alt Valid Token
+JWT-->>Auth: Claims
+Auth-->>Gateway: Authorized
+Gateway-->>Client: Protected Resource
+else Invalid Token
+JWT-->>Auth: Invalid
+Auth-->>Client: 401 Unauthorized
+end
 ```
-
 ---
 
 # 🔄 Refresh Token Flow
 
-```text
-Access Token Expired
+```mermaid
+sequenceDiagram
 
-        │
+participant Client
+participant Auth
+participant DB
 
-        ▼
+Client->>Auth: Refresh Token
 
-Client Sends Refresh Token
+Auth->>DB: Validate Refresh Token
 
-        │
+alt Valid
 
-        ▼
+DB-->>Auth: Token Found
 
-Validate Refresh Token
+Auth->>Auth: Generate New Access Token
 
-        │
+Auth-->>Client: New JWT
 
- ┌──────┴────────┐
+else Invalid
 
- ▼               ▼
+DB-->>Auth: Not Found
 
-Valid         Invalid
+Auth-->>Client: 401 Unauthorized
 
- │               │
-
- ▼               ▼
-
-Generate      Reject Request
-
-New JWT
+end
 ```
-
 ---
 
 # 📧 Email Verification Flow
 
-```text
-Register User
+```mermaid
+sequenceDiagram
 
-      │
+Client->>Auth:Verify Email
 
-      ▼
+Auth->>Auth:Validate Token
 
-Generate Verification Token
+Auth->>UserService:Verify User
 
-      │
+alt ROLE_OWNER
+Auth->>OwnerService:Verify Owner
+end
 
-      ▼
+Auth->>Auth:Delete Verification Token
 
-Send Email
-
-      │
-
-      ▼
-
-User Clicks Link
-
-      │
-
-      ▼
-
-Validate Token
-
-      │
-
-      ▼
-
-Activate Account
-
-      │
-
-      ▼
-
-Email Verified
+Auth-->>Client:Email Verified
 ```
-
 ---
 
 # 🔑 Forgot Password Flow
 
-```text
-Forgot Password Request
+```mermaid
+sequenceDiagram
 
-          │
+Client->>Auth:Forgot Password
 
-          ▼
+Auth->>Auth:Generate OTP
 
-Validate Email
+Auth->>Mail:Send OTP
 
-          │
+Mail-->>Client:Receive OTP
 
-          ▼
+Client->>Auth:Reset Password
 
-Generate Reset Token
+Auth->>Auth:Validate OTP
 
-          │
-
-          ▼
-
-Send Email
-
-          │
-
-          ▼
-
-User Opens Link
-
-          │
-
-          ▼
-
-Reset Password
-
-          │
-
-          ▼
-
-Encrypt Password
-
-          │
-
-          ▼
-
-Update Password
+Auth-->>Client:Password Updated
 ```
 
 ---
 
 # 🚪 Logout Flow
 
-```text
-Authenticated User
+```mermaid
+sequenceDiagram
 
-        │
+Client->>Auth:Logout
 
-        ▼
+Auth->>Auth:Validate Refresh Token
 
-Logout API
+Auth->>Auth:Revoke Token
 
-        │
-
-        ▼
-
-Validate Refresh Token
-
-        │
-
-        ▼
-
-Revoke Token
-
-        │
-
-        ▼
-
-Remove Active Session
-
-        │
-
-        ▼
-
-Logout Successful
+Auth-->>Client:Logout Successful
 ```
 
 ---
@@ -881,6 +851,19 @@ The implemented security mechanisms include:
 This layered security model minimizes unauthorized access while maintaining scalability across distributed microservices.
 
 ---
+## 🔐 Idempotency
+The Auth Service implements idempotent behavior for critical authentication workflows.
+
+Implemented:
+
+- Logout is idempotent.
+- Email verification token can only be consumed once.
+- Password reset removes previously generated OTPs before issuing a new one.
+- Refresh token rotation prevents token reuse.
+- Duplicate registration is prevented through unique email validation.
+
+These mechanisms ensure repeated client requests do not produce inconsistent system state.
+
 
 # 🔑 JWT Strategy
 
@@ -931,32 +914,32 @@ The Auth Service uses **BCrypt Password Encoder** provided by Spring Security.
 
 Password workflow:
 
-```text
-User Password
+```mermaid
+flowchart LR
 
-      │
+Password["User Password"]
 
-      ▼
+BCrypt["BCrypt Password Encoder"]
 
-BCrypt Hash
+Hash["Encrypted Password"]
 
-      │
+Database[(MySQL)]
 
-      ▼
+Login["Login Request"]
 
-Store Hash Only
+Verify["BCrypt Verification"]
 
-      │
+Password --> BCrypt
 
-      ▼
+BCrypt --> Hash
 
-Password Verification
+Hash --> Database
 
-      │
+Login --> Verify
 
-      ▼
+Database --> Verify
 
-Authentication Result
+Verify --> Authentication
 ```
 
 This ensures user credentials remain protected even if the database is compromised.
@@ -1007,40 +990,33 @@ The Auth Service implements secure logout using Refresh Token revocation.
 
 Logout workflow:
 
-```text
-Client
+```mermaid
+sequenceDiagram
 
-      │
+participant Client
+participant Auth
+participant DB
 
-      ▼
+Client->>Auth: Logout
 
-Logout Request
+Auth->>DB: Find Refresh Token
 
-      │
+alt Token Exists
 
-      ▼
+DB-->>Auth: Token
 
-Validate Refresh Token
+Auth->>DB: Delete Token
 
-      │
+Auth-->>Client: Logout Successful
 
-      ▼
+else Already Logged Out
 
-Revoke Token
+DB-->>Auth: Not Found
 
-      │
+Auth-->>Client: Success (Idempotent)
 
-      ▼
-
-Remove Active Session
-
-      │
-
-      ▼
-
-Logout Successful
+end
 ```
-
 By revoking the Refresh Token, clients can no longer obtain new Access Tokens after logout.
 
 ---
@@ -1117,7 +1093,7 @@ Externalizing configuration simplifies deployment across development, testing, a
 
 # 📋 Logging Strategy
 
-The application uses structured logging to simplify debugging and production monitoring.
+The application uses distributed request tracing using Correlation IDs across downstream services and structured logging to simplify debugging and production monitoring.
 
 The following events are logged:
 
@@ -1151,6 +1127,18 @@ Error Handling
 Logging sensitive information such as passwords or JWT secrets is intentionally avoided.
 
 ---
+## 📊 Observability
+The Auth Service includes production-grade observability features.
+
+Implemented
+
+- Spring Boot Actuator
+- Health Endpoint
+- Metrics Endpoint
+- Logger Endpoint
+- Environment Endpoint
+- Readiness Information
+
 
 # 🚨 Exception Handling Strategy
 
@@ -1197,7 +1185,17 @@ Implemented:
 - Bean Validation
 - Externalized Configuration
 - Layered Architecture
-
+- Netflix Eureka Service Discovery
+- Spring Cloud Config
+- Spring Cloud Gateway
+- Resilience4j Retry
+- Circuit Breaker
+- Correlation ID Propagation
+- Feign Request Interceptor
+- Spring Boot Actuator
+- Distributed Logging Support
+- Idempotent Operations
+  
 ---
 
 # 🚀 Future Enhancements
@@ -1218,18 +1216,16 @@ Reliability
 
 Observability
 
-- Spring Boot Actuator
 - Prometheus
 - Grafana
 - OpenTelemetry
 - Distributed Tracing
 
 Infrastructure
-
+- Kafka Event Publishing
 - Docker
 - Kubernetes
 - CI/CD Pipeline
-- Centralized Configuration
 
 These enhancements will further improve scalability, security, and operational visibility in production environments.
 
@@ -1661,6 +1657,9 @@ Implemented:
 - Stateless Authentication
 - Bean Validation
 - Secure Logout
+- Authorization Header Propagation
+- Correlation ID Propagation
+- Service-to-Service Authentication
 
 Recommended for Production:
 
@@ -1753,13 +1752,22 @@ This project demonstrates practical implementation of enterprise authentication 
 - Email Verification
 - Password Recovery Workflow
 - BCrypt Password Encoding
-- OpenFeign Communication
 - Spring Data JPA
 - REST API Design
 - Layered Architecture
 - Global Exception Handling
 - Environment-Based Configuration
 - Enterprise Authentication Design
+- Netflix Eureka
+- Spring Cloud Config
+- Spring Cloud Gateway
+- OpenFeign
+- Resilience4j Retry
+- Circuit Breaker
+- Idempotent API Design
+- Correlation ID Propagation
+- Spring Boot Actuator
+
 
 ---
 
@@ -1776,7 +1784,12 @@ This project was developed using concepts and best practices from:
 - REST API Design Principles
 - Enterprise Authentication Patterns
 - Microservices Architecture
-
+- Spring Cloud Netflix Eureka
+- Spring Cloud Gateway
+- Spring Cloud Config
+- Resilience4j
+- Spring Boot Actuator
+  
 ---
 
 # 📝 Project Summary
